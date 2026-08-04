@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Real-Time Clock Dashboard</title>
+  <style>
+    :root {
+      --bg: #081a2c;
+      --surface: rgba(10, 25, 45, 0.9);
+      --text: #eef7ff;
+      --accent: #58c7ff;
+      --accent-2: #a26cff;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, rgba(88, 199, 255, 0.18), transparent 35%),
+        linear-gradient(180deg, #0b1630 0%, #07101e 100%);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+
+    .dashboard {
+      width: min(1100px, calc(100% - 32px));
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) 1fr;
+      gap: 28px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 30px;
+      padding: 32px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(24px);
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .panel h1,
+    .panel h2,
+    .panel p {
+      margin: 0;
+    }
+
+    .panel h1 {
+      font-size: clamp(1.75rem, 2.4vw, 2.7rem);
+      letter-spacing: -0.04em;
+    }
+
+    .panel h2 {
+      font-size: 1.05rem;
+      color: rgba(238, 247, 255, 0.7);
+    }
+
+    .clock-frame {
+      width: clamp(280px, 100%, 360px);
+      aspect-ratio: 1;
+      margin: 0 auto;
+      position: relative;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.18), transparent 25%),
+        radial-gradient(circle at 70% 80%, rgba(88,199,255,0.15), transparent 35%),
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      box-shadow: inset 0 0 40px rgba(255,255,255,0.08), 0 18px 60px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+
+    .clock-face {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform: translateZ(0);
+    }
+
+    .tick {
+      position: absolute;
+      left: 50%;
+      top: 4%;
+      width: 3px;
+      height: 12%;
+      background: rgba(238, 247, 255, 0.85);
+      transform-origin: center 340%;
+    }
+
+    .tick.small {
+      height: 8%;
+      width: 2px;
+      background: rgba(238, 247, 255, 0.45);
+    }
+
+    .hand {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform-origin: center 100%;
+      transform: translateX(-50%) translateY(-10%) rotate(90deg);
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .hand.hour {
+      width: 8px;
+      height: 28%;
+      background: linear-gradient(180deg, #a26cff 0%, #58c7ff 100%);
+      z-index: 3;
+      box-shadow: 0 0 20px rgba(90, 180, 255, 0.5);
+    }
+
+    .hand.minute {
+      width: 5px;
+      height: 38%;
+      background: linear-gradient(180deg, #ffffff 0%, rgba(88,199,255,0.95) 100%);
+      z-index: 2;
+      box-shadow: 0 0 20px rgba(255,255,255,0.35);
+    }
+
+    .hand.second {
+      width: 2px;
+      height: 44%;
+      background: #ff6b6b;
+      z-index: 1;
+      box-shadow: 0 0 24px rgba(255,107,107,0.65);
+    }
+
+    .hand-center {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 18px rgba(255,255,255,0.6);
+      z-index: 4;
+    }
+
+    .digital-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+      box-shadow: inset 0 0 40px rgba(255,255,255,0.05);
+    }
+
+    .digital-time {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    .digital-time strong {
+      font-size: clamp(2.9rem, 5vw, 4.8rem);
+      letter-spacing: -0.06em;
+      display: block;
+    }
+
+    .digital-subtitle {
+      color: rgba(238, 247, 255, 0.7);
+      font-size: 1.1rem;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .status-card {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .status-card span {
+      display: block;
+      font-size: 0.95rem;
+      color: rgba(238,247,255,0.72);
+    }
+
+    .status-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.2rem;
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.95rem;
+      color: rgba(238,247,255,0.8);
+    }
+
+    select,
+    button,
+    .toggle {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 14px 16px;
+      font-size: 0.98rem;
+      color: var(--text);
+      background: rgba(255,255,255,0.05);
+      outline: none;
+    }
+
+    select {
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .toggle {
+      display: inline-flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .theme-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .theme-buttons button {
+      transition: transform 0.2s ease, background 0.25s ease;
+    }
+
+    .theme-buttons button:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn {
+      cursor: pointer;
+      background: linear-gradient(135deg, rgba(88,199,255,0.95), rgba(162,108,255,0.95));
+      color: #111827;
+      border: none;
+      font-weight: 700;
+      transition: filter 0.2s ease, transform 0.2s ease;
+    }
+
+    .btn:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    .footer {
+      color: rgba(238,247,255,0.6);
+      font-size: 0.92rem;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    .timezone-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    @media (max-width: 900px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="dashboard">
+    <section class="panel">
+      <div>
+        <h1>Real-Time Clock Dashboard</h1>
+        <p>Analog, digital and timezone-aware time tracking with 24 hour format and dynamic theme.</p>
+      </div>
+
+      <div class="clock-frame" aria-label="Analog clock">
+        <div class="clock-face" id="clock-face"></div>
+        <div class="hand hour" id="hour-hand"></div>
+        <div class="hand minute" id="minute-hand"></div>
+        <div class="hand second" id="second-hand"></div>
+        <div class="hand-center"></div>
+      </div>
+
+      <div class="controls">
+        <label>
+          Time Zone
+          <select id="timezone-select" aria-label="Select time zone"></select>
+        </label>
+
+        <label class="toggle" id="format-toggle">
+          <span>24-Hour Format</span>
+          <input type="checkbox" id="toggle-input" style="display:none;" />
+          <span id="toggle-state">On</span>
+        </label>
+
+        <div class="theme-buttons">
+          <button class="btn" data-theme="morning">Morning</button>
+          <button class="btn" data-theme="night">Night</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="digital-card">
+        <div class="digital-time">
+          <strong id="digital-time">00:00:00</strong>
+          <div>
+            <span class="digital-subtitle" id="day-date">Loading date...</span>
+            <span class="digital-subtitle" id="location-name">UTC</span>
+          </div>
+        </div>
+
+        <div class="status-grid">
+          <div class="status-card">
+            <span>Current Time Zone</span>
+            <strong id="current-zone">UTC</strong>
+          </div>
+          <div class="status-card">
+            <span>Local Offset</span>
+            <strong id="utc-offset">+00:00</strong>
+          </div>
+          <div class="status-card">
+            <span>Day of Week</span>
+            <strong id="weekday">Monday</strong>
+          </div>
+          <div class="status-card">
+            <span>Time Style</span>
+            <strong id="time-style">24 Hour</strong>
+          </div>
+        </div>
+
+        <div class="timezone-grid" id="timezone-info"></div>
+      </div>
+      <p class="footer">Built for responsive use. Open this file in any browser to see live updates.</p>
+    </section>
+  </main>
+
+  <script>
+    const timezoneSelect = document.getElementById('timezone-select');
+    const hourHand = document.getElementById('hour-hand');
+    const minuteHand = document.getElementById('minute-hand');
+    const secondHand = document.getElementById('second-hand');
+    const digitalTime = document.getElementById('digital-time');
+    const dayDate = document.getElementById('day-date');
+    const locationName = document.getElementById('location-name');
+    const currentZone = document.getElementById('current-zone');
+    const utcOffset = document.getElementById('utc-offset');
+    const weekday = document.getElementById('weekday');
+    const timeStyle = document.getElementById('time-style');
+    const timezoneInfo = document.getElementById('timezone-info');
+    const formatToggle = document.getElementById('format-toggle');
+    const toggleInput = document.getElementById('toggle-input');
+    const toggleState = document.getElementById('toggle-state');
+    const themeButtons = document.querySelectorAll('.theme-buttons button');
+    const clockFace = document.getElementById('clock-face');
+
+    const zones = [
+      'UTC',
+      'Europe/London',
+      'Europe/Paris',
+      'America/New_York',
+      'America/Los_Angeles',
+      'Asia/Tokyo',
+      'Asia/Kolkata',
+      'Australia/Sydney',
+      'Pacific/Auckland'
+    ];
+
+    const timezoneLabels = {
+      'UTC': 'Coordinated Universal Time',
+      'Europe/London': 'London',
+      'Europe/Paris': 'Paris',
+      'America/New_York': 'New York',
+      'America/Los_Angeles': 'Los Angeles',
+      'Asia/Tokyo': 'Tokyo',
+      'Asia/Kolkata': 'Kolkata',
+      'Australia/Sydney': 'Sydney',
+      'Pacific/Auckland': 'Auckland'
+    };
+
+    zones.forEach(zone => {
+      const option = document.createElement('option');
+      option.value = zone;
+      option.textContent = `${timezoneLabels[zone] || zone} (${zone})`;
+      timezoneSelect.appendChild(option);
+    });
+
+    timezoneSelect.value = 'UTC';
+    toggleInput.checked = true;
+    toggleState.textContent = 'On';
+
+    const createTicks = () => {
+      for (let i = 0; i < 60; i++) {
+        const tick = document.createElement('div');
+        tick.className = 'tick' + (i % 5 ? ' small' : '');
+        tick.style.transform = `translateX(-50%) rotate(${i * 6}deg)`;
+        clockFace.appendChild(tick);
+      }
+    };
+
+    createTicks();
+
+    const formatWithPadding = value => String(value).padStart(2, '0');
+
+    const getOffsetText = offsetMinutes => {
+      const sign = offsetMinutes >= 0 ? '+' : '-';
+      const absMinutes = Math.abs(offsetMinutes);
+      const hours = Math.floor(absMinutes / 60);
+      const minutes = absMinutes % 60;
+      return `${sign}${formatWithPadding(hours)}:${formatWithPadding(minutes)}`;
+    };
+
+    const getTimeParts = (date, zone, hour12) => {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        hour12,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      });
+
+      const parts = formatter.formatToParts(date).reduce((acc, part) => {
+        if (part.type !== 'literal') {
+          acc[part.type] = part.value;
+        }
+        return acc;
+      }, {});
+
+      return parts;
+    };
+
+    const updateUI = () => {
+      const zone = timezoneSelect.value;
+      const use24 = toggleInput.checked;
+      const now = new Date();
+      const options = { timeZone: zone, hour12: !use24 };
+      const localeTime = new Intl.DateTimeFormat('en-GB', {
+        ...options,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).format(now);
+
+      const dateFormatter = new Intl.DateTimeFormat('en-US', {
+        ...options,
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      });
+
+      const dateParts = getTimeParts(now, zone, !use24);
+      const dt = new Date(now.toLocaleString('en-US', { timeZone: zone }));
+      const utcOffsetMinutes = -dt.getTimezoneOffset();
+
+      digitalTime.textContent = localeTime;
+      dayDate.textContent = `${dateParts.weekday}, ${dateParts.month} ${dateParts.day}, ${dateParts.year}`;
+      locationName.textContent = timezoneLabels[zone] || zone;
+      currentZone.textContent = zone;
+      utcOffset.textContent = getOffsetText(utcOffsetMinutes);
+      weekday.textContent = dateParts.weekday;
+      timeStyle.textContent = use24 ? '24 Hour' : '12 Hour';
+      toggleState.textContent = use24 ? 'On' : 'Off';
+
+      const seconds = Number(dateParts.second);
+      const minutes = Number(dateParts.minute) + seconds / 60;
+      let hours = Number(dateParts.hour) % 12 + minutes / 60;
+      if (use24) {
+        hours = Number(dateParts.hour) + minutes / 60;
+      }
+
+      const secondsDeg = seconds * 6;
+      const minutesDeg = minutes * 6;
+      const hoursDeg = hours * 30;
+      hourHand.style.transform = `translateX(-50%) translateY(-10%) rotate(${hoursDeg}deg)`;
+      minuteHand.style.transform = `translateX(-50%) translateY(-10%) rotate(${minutesDeg}deg)`;
+      secondHand.style.transform = `translateX(-50%) translateY(-10%) rotate(${secondsDeg}deg)`;
+
+      const themeClass = use24 ? 'theme-24' : 'theme-12';
+      document.body.dataset.format = themeClass;
+
+      timezoneInfo.innerHTML = `
+        <div class="status-card"><span>City</span><strong>${timezoneLabels[zone] || zone}</strong></div>
+        <div class="status-card"><span>Zone ID</span><strong>${zone}</strong></div>
+        <div class="status-card"><span>Local Time</span><strong>${localeTime}</strong></div>
+        <div class="status-card"><span>UTC Offset</span><strong>${getOffsetText(utcOffsetMinutes)}</strong></div>
+      `;
+    };
+
+    toggleInput.addEventListener('change', updateUI);
+    timezoneSelect.addEventListener('change', updateUI);
+
+    formatToggle.addEventListener('click', () => {
+      toggleInput.checked = !toggleInput.checked;
+      updateUI();
+    });
+
+    themeButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const theme = button.dataset.theme;
+        if (theme === 'morning') {
+          document.body.style.background = 'radial-gradient(circle at top, rgba(255, 211, 122, 0.18), transparent 30%), linear-gradient(180deg, #15233d 0%, #081426 100%)';
+          document.documentElement.style.setProperty('--accent', '#ffca5b');
+          document.documentElement.style.setProperty('--accent-2', '#ff8777');
+        } else {
+          document.body.style.background = 'radial-gradient(circle at top, rgba(88,199,255,0.18), transparent 35%), linear-gradient(180deg, #0b1630 0%, #07101e 100%)';
+          document.documentElement.style.setProperty('--accent', '#58c7ff');
+          document.documentElement.style.setProperty('--accent-2', '#a26cff');
+        }
+      });
+    });
+
+    updateUI();
+    setInterval(updateUI, 1000);
+  </script>
+</body>
+</html>
